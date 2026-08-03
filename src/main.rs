@@ -6,11 +6,13 @@ use axum::{
 };
 use models::{HealthResponse, SmsPayload, SmsResponse};
 use std::time::Instant;
+use tracing::{info, instrument};
 
 static START_TIME: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
 
 #[tokio::main]
 async fn main() {
+    tracing_subscriber::fmt::init();
     START_TIME.set(Instant::now()).ok();
 
     let app = Router::new()
@@ -21,12 +23,13 @@ async fn main() {
         .await
         .unwrap();
 
-    println!("Server running on http://127.0.0.1:3000");
+    info!("Server running on http://127.0.0.1:3000");
     axum::serve(listener, app).await.unwrap();
 }
 
 async fn health_handler() -> Json<HealthResponse> {
     let elapsed = START_TIME.get().map(|t| t.elapsed().as_secs()).unwrap_or(0);
+    
     Json(HealthResponse {
         status: "ok".to_string(),
         service: "VINOC Telecom Gateway".to_string(),
@@ -34,7 +37,9 @@ async fn health_handler() -> Json<HealthResponse> {
     })
 }
 
+#[instrument(skip(payload))]
 async fn send_sms_handler(Json(payload): Json<SmsPayload>) -> Json<SmsResponse> {
+    info!("Procesando envío de SMS para: {}", payload.recipient);
 
     Json(SmsResponse {
         message_id: "msg_9876543210".to_string(),

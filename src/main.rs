@@ -1,12 +1,14 @@
 mod models;
+mod errors;
 
 use axum::{
     routing::{get, post}, 
     Router, Json
 };
+use errors::ApiError;
 use models::{HealthResponse, SmsPayload, SmsResponse};
 use std::time::Instant;
-use tracing::{info, instrument};
+use tracing::{info, instrument, warn};
 
 static START_TIME: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
 
@@ -38,12 +40,30 @@ async fn health_handler() -> Json<HealthResponse> {
 }
 
 #[instrument(skip(payload))]
-async fn send_sms_handler(Json(payload): Json<SmsPayload>) -> Json<SmsResponse> {
+async fn send_sms_handler(Json(payload): Json<SmsPayload>) -> Result<Json<SmsResponse>, ApiError> {
     info!("Procesando envío de SMS para: {}", payload.recipient);
 
-    Json(SmsResponse {
-        message_id: "msg_9876543210".to_string(),
+    if payload.recipient.is_empty() || !payload.recipient.starts_with('+') {
+        warn!("Validación fallida: formato de número inválido ('{}')", payload.recipient);
+ 
+        return Err(ApiError::ValidationError(
+            "Formato inválido. El número debe incluir el código de país (ej. +52).".to_string()
+        ));
+    }
+
+    if payload.message.trim().is_empty() {
+        warn!("Validación fallida: cuerpo del mensaje vacío para el número '{}'", payload.recipient);
+        
+        return Err(ApiError::ValidationError(
+            "El cuerpo del mensaje SMS no puede estar vacío.".to_string()
+        ));
+    }
+
+    let mock_id = format!("msg_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs());
+
+    Ok(Json(SmsResponse {
+        message_id: mock_id,
         status: "queued".to_string(),
         recipient: payload.recipient,
-    })
+    }))
 }

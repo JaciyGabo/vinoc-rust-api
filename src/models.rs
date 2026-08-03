@@ -19,3 +19,22 @@ pub struct SmsResponse {
     pub status: String,
     pub recipient: String,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_sms_payload_deserialization() {
+        let incoming_data = json!({
+            "recipient": "+524421234567",
+            "message": "Prueba de integración técnica"
+        });
+
+        let payload: SmsPayload = serde_json::from_value(incoming_data).unwrap();
+        
+        assert_eq!(payload.recipient, "+524421234567");
+        assert_eq!(payload.message, "Prueba de integración técnica");
+    }
+}

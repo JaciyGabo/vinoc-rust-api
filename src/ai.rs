@@ -6,7 +6,7 @@ pub async fn evaluate_sms_spam(message: &str) -> Result<String, String> {
     let api_key = env::var("GEMINI_API_KEY")
         .map_err(|_| "Error crítico: Falta configurar GEMINI_API_KEY".to_string())?;
     
-    let url = format!("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={}", api_key);
+    let url = format!("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={}", api_key);
 
     let client = Client::new();
     

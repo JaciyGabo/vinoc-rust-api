@@ -29,7 +29,20 @@ pub async fn evaluate_sms_spam(message: &str) -> Result<String, String> {
     let payload = json!({
         "contents": [{
             "parts": [{"text": format!("Actúa como un filtro de seguridad de telecomunicaciones. Analiza el siguiente SMS y clasifícalo estrictamente con una sola palabra de esta lista: LEGITIMO, SPAM, o PHISHING. No agregues saludos ni explicaciones. Mensaje: '{}'", message)}]
-        }]
+        }],
+        "generationConfig": {
+            "responseMimeType": "application/json",
+            "responseSchema": {
+                "type": "OBJECT",
+                "properties": {
+                    "classification": {
+                        "type": "STRING",
+                        "enum": ["LEGITIMO", "SPAM", "PHISHING"]
+                    }
+                },
+                "required": ["classification"]
+            }
+        }
     });
 
     let res = client.post(url)
@@ -47,7 +60,14 @@ pub async fn evaluate_sms_spam(message: &str) -> Result<String, String> {
 
     let json_body: serde_json::Value = res.json().await.map_err(|e| e.to_string())?;
     
-    let evaluation = json_body["candidates"][0]["content"]["parts"][0]["text"]
+    let raw_text = json_body["candidates"][0]["content"]["parts"][0]["text"]
+        .as_str()
+        .ok_or_else(|| "Respuesta inesperada del modelo (sin texto)".to_string())?;
+
+    let parsed: serde_json::Value = serde_json::from_str(raw_text)
+        .map_err(|e| format!("No se pudo parsear la clasificación estructurada: {}", e))?;
+
+    let evaluation = parsed["classification"]
         .as_str()
         .unwrap_or("DESCONOCIDO")
         .trim()

@@ -88,6 +88,12 @@ async fn send_sms_handler(Json(payload): Json<SmsPayload>) -> Result<Json<SmsRes
         ));
     }
 
+    if classification == "ERROR_IA" {
+    return Err(ApiError::ValidationError(
+        "No se pudo validar el mensaje en este momento. Intenta de nuevo.".to_string()
+    ));
+}
+
     // 3. Capa de Respuesta y Encolado
     let mock_id = format!("msg_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs());
 

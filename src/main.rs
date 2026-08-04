@@ -1,19 +1,21 @@
 mod models;
-mod errors;
+mod error;
+mod ai;
 
 use axum::{
     routing::{get, post}, 
     Router, Json
 };
-use errors::ApiError;
+use error::ApiError;
 use models::{HealthResponse, SmsPayload, SmsResponse};
 use std::time::Instant;
-use tracing::{info, instrument, warn};
+use tracing::{info, instrument, warn, error};
 
 static START_TIME: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
 
 #[tokio::main]
 async fn main() {
+    dotenvy::dotenv().ok();
     tracing_subscriber::fmt::init();
     START_TIME.set(Instant::now()).ok();
 
@@ -59,11 +61,28 @@ async fn send_sms_handler(Json(payload): Json<SmsPayload>) -> Result<Json<SmsRes
         ));
     }
 
+    info!("Evaluando contenido del mensaje con Gemini IA...");
+    let classification = match ai::evaluate_sms_spam(&payload.message).await {
+        Ok(result) => result,
+        Err(e) => {
+            error!("Fallo en el Agente de IA: {}", e);
+            "ERROR_IA".to_string()
+        }
+    };
+
+    if classification == "SPAM" || classification == "PHISHING" {
+        warn!("Seguridad: Mensaje bloqueado por Agente IA. Razón: {}", classification);
+        return Err(ApiError::ValidationError(
+            format!("Mensaje rechazado por políticas de seguridad de red (Clasificación: {})", classification)
+        ));
+    }
+
     let mock_id = format!("msg_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs());
 
     Ok(Json(SmsResponse {
         message_id: mock_id,
         status: "queued".to_string(),
         recipient: payload.recipient,
+        classification,
     }))
 }

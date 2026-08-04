@@ -18,6 +18,7 @@ pub struct SmsResponse {
     pub message_id: String,
     pub status: String,
     pub recipient: String,
+    pub classification: String,
 }
 
 #[cfg(test)]

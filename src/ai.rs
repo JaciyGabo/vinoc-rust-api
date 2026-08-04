@@ -1,6 +1,19 @@
 use reqwest::Client;
 use serde_json::json;
 use std::env;
+use std::sync::OnceLock;
+use std::time::Duration;
+
+static HTTP_CLIENT: OnceLock<Client> = OnceLock::new();
+
+fn get_client() -> &'static Client {
+    HTTP_CLIENT.get_or_init(|| {
+        Client::builder()
+            .timeout(Duration::from_secs(10))
+            .build()
+            .expect("No se pudo construir el cliente HTTP")
+    })
+}
 
 /// Actúa como un interceptor de seguridad evaluando el contexto del mensaje.
 /// Se comunica con la API de Google Gemini para clasificar el texto en tiempo real.
@@ -11,7 +24,7 @@ pub async fn evaluate_sms_spam(message: &str) -> Result<String, String> {
     // Utilizamos el modelo Flash por su baja latencia, ideal para flujos de red rápidos
     let url = format!("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={}", api_key);
 
-    let client = Client::new();
+    let client = get_client();
     
     let payload = json!({
         "contents": [{

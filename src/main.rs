@@ -11,14 +11,17 @@ use models::{HealthResponse, SmsPayload, SmsResponse};
 use std::time::Instant;
 use tracing::{info, instrument, warn, error};
 
+// Estado global estático para calcular el tiempo de actividad (uptime) del servidor
 static START_TIME: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
 
 #[tokio::main]
 async fn main() {
+    // Inicialización de variables de entorno y sistema de logs estructurados
     dotenvy::dotenv().ok();
     tracing_subscriber::fmt::init();
     START_TIME.set(Instant::now()).ok();
 
+    // Configuración del enrutador principal de Axum
     let app = Router::new()
         .route("/api/health", get(health_handler))
         .route("/api/sms/send", post(send_sms_handler));
@@ -31,6 +34,8 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
+/// Endpoint de monitoreo para balanceadores de carga y orquestadores.
+/// Devuelve el estado actual y el tiempo de actividad del servicio.
 async fn health_handler() -> Json<HealthResponse> {
     let elapsed = START_TIME.get().map(|t| t.elapsed().as_secs()).unwrap_or(0);
     
@@ -41,10 +46,14 @@ async fn health_handler() -> Json<HealthResponse> {
     })
 }
 
-#[instrument(skip(payload))]
+
+/// Procesa las solicitudes entrantes de envío de SMS.
+/// Implementa validación de reglas de negocio y evaluación de contenido mediante IA.
+#[instrument(skip(payload))] // Inyecta el contexto de la función en los logs omitiendo datos sensibles
 async fn send_sms_handler(Json(payload): Json<SmsPayload>) -> Result<Json<SmsResponse>, ApiError> {
     info!("Procesando envío de SMS para: {}", payload.recipient);
 
+    // 1. Capa de Validación de Estructura
     if payload.recipient.is_empty() || !payload.recipient.starts_with('+') {
         warn!("Validación fallida: formato de número inválido ('{}')", payload.recipient);
  
@@ -61,6 +70,7 @@ async fn send_sms_handler(Json(payload): Json<SmsPayload>) -> Result<Json<SmsRes
         ));
     }
 
+    // 2. Capa de Seguridad (Agente IA)
     info!("Evaluando contenido del mensaje con Gemini IA...");
     let classification = match ai::evaluate_sms_spam(&payload.message).await {
         Ok(result) => result,
@@ -70,6 +80,7 @@ async fn send_sms_handler(Json(payload): Json<SmsPayload>) -> Result<Json<SmsRes
         }
     };
 
+    // Bloqueo preventivo en caso de detectar amenazas
     if classification == "SPAM" || classification == "PHISHING" {
         warn!("Seguridad: Mensaje bloqueado por Agente IA. Razón: {}", classification);
         return Err(ApiError::ValidationError(
@@ -77,6 +88,7 @@ async fn send_sms_handler(Json(payload): Json<SmsPayload>) -> Result<Json<SmsRes
         ));
     }
 
+    // 3. Capa de Respuesta y Encolado
     let mock_id = format!("msg_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs());
 
     Ok(Json(SmsResponse {

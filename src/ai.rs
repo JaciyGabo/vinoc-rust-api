@@ -2,10 +2,13 @@ use reqwest::Client;
 use serde_json::json;
 use std::env;
 
+/// Actúa como un interceptor de seguridad evaluando el contexto del mensaje.
+/// Se comunica con la API de Google Gemini para clasificar el texto en tiempo real.
 pub async fn evaluate_sms_spam(message: &str) -> Result<String, String> {
     let api_key = env::var("GEMINI_API_KEY")
         .map_err(|_| "Error crítico: Falta configurar GEMINI_API_KEY".to_string())?;
     
+    // Utilizamos el modelo Flash por su baja latencia, ideal para flujos de red rápidos
     let url = format!("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={}", api_key);
 
     let client = Client::new();

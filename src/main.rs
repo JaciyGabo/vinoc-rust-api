@@ -10,9 +10,20 @@ use error::ApiError;
 use models::{HealthResponse, SmsPayload, SmsResponse};
 use std::time::Instant;
 use tracing::{info, instrument, warn, error};
+use regex::Regex;
 
 // Estado global estático para calcular el tiempo de actividad (uptime) del servidor
 static START_TIME: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
+
+const MAX_MESSAGE_LENGTH: usize = 500;
+
+static PHONE_REGEX: std::sync::OnceLock<Regex> = std::sync::OnceLock::new();
+
+fn phone_regex() -> &'static Regex {
+    PHONE_REGEX.get_or_init(|| {
+        Regex::new(r"^\+[1-9]\d{6,14}$").expect("Regex de teléfono inválida")
+    })
+}
 
 #[tokio::main]
 async fn main() {
@@ -54,11 +65,17 @@ async fn send_sms_handler(Json(payload): Json<SmsPayload>) -> Result<Json<SmsRes
     info!("Procesando envío de SMS para: {}", payload.recipient);
 
     // 1. Capa de Validación de Estructura
-    if payload.recipient.is_empty() || !payload.recipient.starts_with('+') {
+    if !phone_regex().is_match(&payload.recipient) {
         warn!("Validación fallida: formato de número inválido ('{}')", payload.recipient);
- 
         return Err(ApiError::ValidationError(
-            "Formato inválido. El número debe incluir el código de país (ej. +52).".to_string()
+            "Formato inválido. Usa formato E.164 con código de país (ej. +524421234567).".to_string()
+        ));
+    }
+
+    if payload.message.chars().count() > MAX_MESSAGE_LENGTH {
+        warn!("Validación fallida: mensaje demasiado largo ({} caracteres)", payload.message.chars().count());
+        return Err(ApiError::ValidationError(
+            format!("El mensaje excede el límite de {} caracteres.", MAX_MESSAGE_LENGTH)
         ));
     }
 

@@ -12,3 +12,4 @@ tracing-subscriber = "0.3.23"
 serde_json = "1.0.151"
 reqwest = { version = "0.13.4", features = ["json"] }
 dotenvy = "0.15.7"
+regex = "1.13.1"

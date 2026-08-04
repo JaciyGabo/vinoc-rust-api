@@ -11,6 +11,7 @@ use models::{HealthResponse, SmsPayload, SmsResponse};
 use std::time::Instant;
 use tracing::{info, instrument, warn, error};
 use regex::Regex;
+use uuid::Uuid;
 
 // Estado global estático para calcular el tiempo de actividad (uptime) del servidor
 static START_TIME: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
@@ -112,7 +113,7 @@ async fn send_sms_handler(Json(payload): Json<SmsPayload>) -> Result<Json<SmsRes
 }
 
     // 3. Capa de Respuesta y Encolado
-    let mock_id = format!("msg_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs());
+    let mock_id = format!("msg_{}", Uuid::new_v4());
 
     Ok(Json(SmsResponse {
         message_id: mock_id,

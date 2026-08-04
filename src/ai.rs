@@ -22,8 +22,8 @@ pub async fn evaluate_sms_spam(message: &str) -> Result<String, String> {
         .map_err(|_| "Error crítico: Falta configurar GEMINI_API_KEY".to_string())?;
     
     // Utilizamos el modelo Flash por su baja latencia, ideal para flujos de red rápidos
-    let url = format!("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={}", api_key);
-
+    let url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent";
+    
     let client = get_client();
     
     let payload = json!({
@@ -32,7 +32,8 @@ pub async fn evaluate_sms_spam(message: &str) -> Result<String, String> {
         }]
     });
 
-    let res = client.post(&url)
+    let res = client.post(url)
+        .header("x-goog-api-key", &api_key)
         .json(&payload)
         .send()
         .await
